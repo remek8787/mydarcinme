@@ -68,6 +68,12 @@ const ui = {
   queryInput: byId("queryInput"),
   searchBtn: byId("searchBtn"),
   status: byId("status"),
+  heroImage: byId("heroImage"),
+  heroBadge: byId("heroBadge"),
+  heroTitle: byId("heroTitle"),
+  heroDesc: byId("heroDesc"),
+  heroWatchBtn: byId("heroWatchBtn"),
+  heroRefreshBtn: byId("heroRefreshBtn"),
   resultCount: byId("resultCount"),
   resultGrid: byId("resultGrid"),
   detailTitle: byId("detailTitle"),
@@ -254,8 +260,38 @@ function normalizeItems(rawItems) {
   });
 }
 
+function updateHero(item) {
+  const cfg = platforms[state.currentPlatform];
+
+  if (!item) {
+    ui.heroBadge.textContent = `Featured • ${cfg.label}`;
+    ui.heroTitle.textContent = "Belum ada drama dipilih";
+    ui.heroDesc.textContent = "Coba ganti platform atau bahasa, lalu cari lagi.";
+    ui.heroImage.src = "https://dummyimage.com/1200x500/0f172a/94a3b8&text=No+Data";
+    return;
+  }
+
+  ui.heroBadge.textContent = `${cfg.label} • ${state.currentLang.toUpperCase()}`;
+  ui.heroTitle.textContent = item.title || "Untitled";
+
+  const shortDesc =
+    String(item.subtitle || findValue(item.raw, ["synopsis", "desc", "description", "intro", "summary"]) || "")
+      .replace(/\s+/g, " ")
+      .trim() || "Pilih untuk melihat detail dan daftar episode.";
+
+  ui.heroDesc.textContent = shortDesc.slice(0, 180);
+  ui.heroImage.src = item.image || "https://dummyimage.com/1200x500/0f172a/94a3b8&text=No+Cover";
+}
+
 function renderResults() {
   ui.resultCount.textContent = `${state.searchResults.length} hasil`;
+
+  const heroTarget =
+    (state.selectedItem &&
+      state.searchResults.find((x) => String(x.id) === String(state.selectedItem.id) && x.title === state.selectedItem.title)) ||
+    state.searchResults[0] ||
+    null;
+  updateHero(heroTarget);
 
   if (!state.searchResults.length) {
     ui.resultGrid.innerHTML = `<div class="empty">Tidak ada hasil. Coba keyword lain.</div>`;
@@ -264,7 +300,7 @@ function renderResults() {
 
   ui.resultGrid.innerHTML = state.searchResults
     .map((item, idx) => `
-      <article class="card" data-idx="${idx}">
+      <article class="card ${state.selectedItem && String(state.selectedItem.id) === String(item.id) ? "active" : ""}" data-idx="${idx}">
         <img src="${item.image || "https://dummyimage.com/400x600/0f172a/94a3b8&text=No+Cover"}" alt="${escapeHtml(item.title)}" loading="lazy" />
         <div class="info">
           <div class="title">${escapeHtml(item.title)}</div>
@@ -426,6 +462,7 @@ async function loadDetail(item) {
   state.episodes = [];
 
   renderDetailPlaceholder(item);
+  updateHero(item);
   ui.episodeList.innerHTML = `<div class="empty">Memuat detail...</div>`;
 
   const cfg = platforms[state.currentPlatform];
@@ -583,6 +620,22 @@ function bindEvents() {
   ui.searchBtn.addEventListener("click", searchDrama);
   ui.queryInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") searchDrama();
+  });
+
+  ui.heroWatchBtn.addEventListener("click", () => {
+    const target =
+      state.selectedItem ||
+      state.searchResults[0] ||
+      null;
+    if (target) {
+      loadDetail(target);
+    } else {
+      setStatus("Belum ada drama untuk diputar. Coba muat beranda dulu.");
+    }
+  });
+
+  ui.heroRefreshBtn.addEventListener("click", () => {
+    loadHomeContent();
   });
 }
 
