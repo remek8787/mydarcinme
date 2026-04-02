@@ -6,9 +6,15 @@ Website nonton drama multi-platform berbasis API:
 - Melolo
 - Shortmax
 
+## Struktur Halaman
+
+- `index.html` → katalog platform (gaya Drakula API)
+- `hub.html` → player multi-source (Dramabox, Melolo, Shortmax)
+
 ## Fitur
 
-- Pilih platform + bahasa
+- Katalog platform ala Drakula (API + Nonton card grid)
+- Pilih platform + bahasa (di `hub.html`)
 - Search drama
 - Auto tampil daftar beranda/trending saat pertama dibuka (tanpa kata kunci)
 - Buka detail drama
@@ -32,6 +38,11 @@ python -m http.server 8080
 ```
 
 Lalu buka `http://localhost:8080`.
+
+Untuk langsung ke player:
+
+- `http://localhost:8080/hub.html`
+- atau preselect platform: `http://localhost:8080/hub.html?platform=melolo`
 
 ## Deploy ke GitHub Pages
 

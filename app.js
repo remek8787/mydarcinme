@@ -660,10 +660,23 @@ function bindEvents() {
 
 function init() {
   loadLocal();
+
+  const qs = new URLSearchParams(location.search);
+  const prePlatform = qs.get("platform");
+  const preLang = qs.get("lang");
+  const preQuery = qs.get("q");
+
+  if (prePlatform && platforms[prePlatform]) {
+    state.currentPlatform = prePlatform;
+  }
+  if (preLang && platforms[state.currentPlatform].langs.includes(preLang)) {
+    state.currentLang = preLang;
+  }
+
   buildPlatformSelect();
   buildLangSelect();
   ui.apiKey.value = state.apiKey;
-  ui.queryInput.value = "cinta";
+  ui.queryInput.value = preQuery || "cinta";
   bindEvents();
   renderResults();
   setStatus("Ready. Beranda drama akan dimuat otomatis.");
