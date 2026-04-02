@@ -1,0 +1,505 @@
+const DEFAULT_KEY = "331D2CC91BC4C0B2218052619DBBBA84";
+
+const platforms = {
+  dramabox: {
+    label: "Dramabox",
+    base: "https://dramabox.dramabos.my.id",
+    langs: ["in", "en", "th", "vi", "ja", "ko"],
+    defaultLang: "in",
+    searchPath: (q, lang) => `/api/v1/search?query=${enc(q)}&lang=${enc(lang)}`,
+    detailPath: (id, lang, key) => `/api/v1/detail?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodesPath: (id, lang, key) => `/api/v1/allepisode?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodeToVideoPath: null,
+    idKeys: ["bookId", "id", "dramaId"],
+    titleKeys: ["bookName", "title", "name"],
+    imageKeys: ["coverWap", "cover", "poster", "image", "bookCover"],
+    episodeIdKeys: ["episodeId", "id", "chapterId", "vid", "videoId"]
+  },
+  melolo: {
+    label: "Melolo",
+    base: "https://melolo.dramabos.my.id",
+    langs: ["id", "en", "es", "ko", "th", "ja", "de", "fr", "pt", "ar", "tr"],
+    defaultLang: "id",
+    searchPath: (q, lang) => `/api/search?lang=${enc(lang)}&q=${enc(q)}`,
+    detailPath: (id, lang) => `/api/detail/${enc(id)}?lang=${enc(lang)}`,
+    episodesPath: () => null,
+    episodeToVideoPath: (epId, lang, key) => `/api/video/${enc(epId)}?lang=${enc(lang)}&code=${enc(key)}`,
+    idKeys: ["id", "dramaId", "bookId", "seriesId"],
+    titleKeys: ["title", "name", "dramaName", "bookName"],
+    imageKeys: ["cover", "coverUrl", "poster", "img", "image"],
+    episodeIdKeys: ["vid", "videoId", "id", "episodeId", "chapterId"]
+  },
+  shortmax: {
+    label: "Shortmax",
+    base: "https://shortmax.dramabos.my.id",
+    langs: ["in", "en", "th", "vi", "es", "pt", "de", "fr", "ja", "ko", "ar"],
+    defaultLang: "in",
+    searchPath: (q, lang) => `/api/search?lang=${enc(lang)}&q=${enc(q)}&size=20`,
+    detailPath: null,
+    episodesPath: (id, lang, key) => `/api/chapters/${enc(id)}?lang=${enc(lang)}&code=${enc(key)}`,
+    episodeToVideoPath: null,
+    idKeys: ["id", "bookId", "dramaId", "seriesId"],
+    titleKeys: ["title", "name", "bookName", "dramaName"],
+    imageKeys: ["cover", "coverUrl", "poster", "image"],
+    episodeIdKeys: ["chapterId", "id", "episodeId", "vid", "videoId"]
+  }
+};
+
+const state = {
+  currentPlatform: "dramabox",
+  currentLang: "in",
+  apiKey: DEFAULT_KEY,
+  searchResults: [],
+  selectedItem: null,
+  detailData: null,
+  episodes: []
+};
+
+let hlsInstance = null;
+
+const ui = {
+  apiKey: byId("apiKey"),
+  saveKeyBtn: byId("saveKeyBtn"),
+  platformSelect: byId("platformSelect"),
+  langSelect: byId("langSelect"),
+  queryInput: byId("queryInput"),
+  searchBtn: byId("searchBtn"),
+  status: byId("status"),
+  resultCount: byId("resultCount"),
+  resultGrid: byId("resultGrid"),
+  detailTitle: byId("detailTitle"),
+  detailMeta: byId("detailMeta"),
+  episodeList: byId("episodeList"),
+  rawJson: byId("rawJson"),
+  playerInfo: byId("playerInfo"),
+  player: byId("videoPlayer")
+};
+
+function byId(id) {
+  return document.getElementById(id);
+}
+
+function enc(v) {
+  return encodeURIComponent(String(v ?? ""));
+}
+
+function setStatus(msg) {
+  ui.status.textContent = msg;
+}
+
+function saveLocal() {
+  localStorage.setItem("mydrama_api_key", state.apiKey);
+  localStorage.setItem("mydrama_platform", state.currentPlatform);
+  localStorage.setItem("mydrama_lang", state.currentLang);
+}
+
+function loadLocal() {
+  state.apiKey = localStorage.getItem("mydrama_api_key") || DEFAULT_KEY;
+  state.currentPlatform = localStorage.getItem("mydrama_platform") || "dramabox";
+  if (!platforms[state.currentPlatform]) state.currentPlatform = "dramabox";
+
+  const defaultLang = platforms[state.currentPlatform].defaultLang;
+  const savedLang = localStorage.getItem("mydrama_lang");
+  state.currentLang = platforms[state.currentPlatform].langs.includes(savedLang)
+    ? savedLang
+    : defaultLang;
+}
+
+function buildPlatformSelect() {
+  ui.platformSelect.innerHTML = Object.entries(platforms)
+    .map(([key, cfg]) => `<option value="${key}">${cfg.label}</option>`)
+    .join("");
+  ui.platformSelect.value = state.currentPlatform;
+}
+
+function buildLangSelect() {
+  const cfg = platforms[state.currentPlatform];
+  ui.langSelect.innerHTML = cfg.langs.map((l) => `<option value="${l}">${l.toUpperCase()}</option>`).join("");
+  if (!cfg.langs.includes(state.currentLang)) state.currentLang = cfg.defaultLang;
+  ui.langSelect.value = state.currentLang;
+}
+
+async function apiGet(path) {
+  const cfg = platforms[state.currentPlatform];
+  const url = cfg.base + path;
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    const text = await res.text();
+    let json;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = { raw: text };
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return json;
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+function deepCollectArrays(input, out = []) {
+  if (!input || typeof input !== "object") return out;
+  if (Array.isArray(input)) {
+    out.push(input);
+    input.forEach((v) => deepCollectArrays(v, out));
+    return out;
+  }
+  Object.values(input).forEach((v) => deepCollectArrays(v, out));
+  return out;
+}
+
+function pickLikelyArray(data, preferred = []) {
+  for (const p of preferred) {
+    const val = getByPath(data, p);
+    if (Array.isArray(val) && val.length) return val;
+  }
+
+  const arrays = deepCollectArrays(data).filter((a) => a.length && typeof a[0] === "object");
+  if (!arrays.length) return [];
+  arrays.sort((a, b) => b.length - a.length);
+  return arrays[0];
+}
+
+function getByPath(obj, path) {
+  return path.split(".").reduce((acc, key) => (acc && key in acc ? acc[key] : undefined), obj);
+}
+
+function findValue(obj, keys) {
+  if (!obj || typeof obj !== "object") return "";
+  for (const k of keys) {
+    if (obj[k] !== undefined && obj[k] !== null && obj[k] !== "") return obj[k];
+  }
+
+  for (const v of Object.values(obj)) {
+    if (v && typeof v === "object") {
+      const nested = findValue(v, keys);
+      if (nested !== "") return nested;
+    }
+  }
+
+  return "";
+}
+
+function findFirstUrl(input) {
+  if (!input) return "";
+  if (typeof input === "string") {
+    const s = input.trim();
+    if (/^https?:\/\//i.test(s) && /(m3u8|mp4|flv|mpd|webm|play\/)/i.test(s)) return s;
+    return "";
+  }
+
+  if (Array.isArray(input)) {
+    for (const v of input) {
+      const found = findFirstUrl(v);
+      if (found) return found;
+    }
+    return "";
+  }
+
+  if (typeof input === "object") {
+    const directKeys = ["hlsUrl", "playUrl", "videoUrl", "url", "streamUrl", "m3u8", "src", "file", "play_path"];
+    for (const k of directKeys) {
+      if (typeof input[k] === "string") {
+        const s = input[k].trim();
+        if (/^https?:\/\//i.test(s)) return s;
+      }
+    }
+
+    for (const v of Object.values(input)) {
+      const found = findFirstUrl(v);
+      if (found) return found;
+    }
+  }
+
+  return "";
+}
+
+function normalizeItems(rawItems) {
+  const cfg = platforms[state.currentPlatform];
+
+  return rawItems
+    .map((item) => {
+      const id = String(findValue(item, cfg.idKeys) || "").trim();
+      const title = String(findValue(item, cfg.titleKeys) || "Untitled").trim();
+      const image = String(findValue(item, cfg.imageKeys) || "").trim();
+
+      return {
+        id,
+        title,
+        image,
+        raw: item,
+        subtitle: String(item.author || item.type || item.classify || item.category || "")
+      };
+    })
+    .filter((x) => x.id || x.title !== "Untitled");
+}
+
+function renderResults() {
+  ui.resultCount.textContent = `${state.searchResults.length} hasil`;
+
+  if (!state.searchResults.length) {
+    ui.resultGrid.innerHTML = `<div class="empty">Tidak ada hasil. Coba keyword lain.</div>`;
+    return;
+  }
+
+  ui.resultGrid.innerHTML = state.searchResults
+    .map((item, idx) => `
+      <article class="card" data-idx="${idx}">
+        <img src="${item.image || "https://dummyimage.com/400x600/0f172a/94a3b8&text=No+Cover"}" alt="${escapeHtml(item.title)}" loading="lazy" />
+        <div class="info">
+          <div class="title">${escapeHtml(item.title)}</div>
+          <div class="sub">${escapeHtml(item.subtitle || item.id || "")}</div>
+        </div>
+      </article>
+    `)
+    .join("");
+
+  ui.resultGrid.querySelectorAll(".card").forEach((el) => {
+    el.addEventListener("click", () => {
+      const idx = Number(el.getAttribute("data-idx"));
+      const item = state.searchResults[idx];
+      if (item) loadDetail(item);
+    });
+  });
+}
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+async function searchDrama() {
+  const query = ui.queryInput.value.trim();
+  if (!query) return setStatus("Masukkan kata kunci dulu.");
+
+  setStatus(`Mencari “${query}” di ${platforms[state.currentPlatform].label}...`);
+
+  try {
+    const cfg = platforms[state.currentPlatform];
+    const data = await apiGet(cfg.searchPath(query, state.currentLang));
+    const list = pickLikelyArray(data, [
+      "records",
+      "result.records",
+      "result.list",
+      "result",
+      "data.records",
+      "data.list",
+      "data",
+      "list",
+      "items",
+      "recommendList.records"
+    ]);
+
+    state.searchResults = normalizeItems(list);
+    renderResults();
+    setStatus(`Selesai. Ditemukan ${state.searchResults.length} hasil.`);
+  } catch (err) {
+    console.error(err);
+    setStatus(`Gagal search: ${err.message}. Kemungkinan CORS / token / endpoint limit.`);
+    state.searchResults = [];
+    renderResults();
+  }
+}
+
+function renderDetailPlaceholder(item) {
+  ui.detailTitle.textContent = item.title || "Detail Drama";
+  ui.detailMeta.textContent = `ID: ${item.id || "-"} • Platform: ${platforms[state.currentPlatform].label}`;
+  ui.rawJson.textContent = JSON.stringify(item.raw, null, 2);
+}
+
+function normalizeEpisodes(rawData) {
+  const cfg = platforms[state.currentPlatform];
+  const arr = pickLikelyArray(rawData, [
+    "chapterList",
+    "episodeList",
+    "episodes",
+    "records",
+    "data.chapterList",
+    "data.episodes",
+    "data"
+  ]);
+
+  return arr.map((ep, idx) => {
+    const id = String(findValue(ep, cfg.episodeIdKeys) || idx + 1);
+    const no =
+      ep.episodeNum || ep.num || ep.sort || ep.index || ep.seq || ep.order || ep.chapterNum || idx + 1;
+    const title = ep.title || ep.name || ep.episodeName || ep.chapterTitle || `Episode ${no}`;
+    const url = findFirstUrl(ep);
+
+    return {
+      id,
+      no: Number(no) || idx + 1,
+      title: String(title),
+      url,
+      raw: ep
+    };
+  });
+}
+
+async function loadDetail(item) {
+  state.selectedItem = item;
+  state.detailData = null;
+  state.episodes = [];
+
+  renderDetailPlaceholder(item);
+  ui.episodeList.innerHTML = `<div class="empty">Memuat detail...</div>`;
+
+  const cfg = platforms[state.currentPlatform];
+  const key = state.apiKey;
+
+  try {
+    let detail = item.raw;
+    if (cfg.detailPath) {
+      detail = await apiGet(cfg.detailPath(item.id, state.currentLang, key));
+    }
+
+    state.detailData = detail;
+
+    let epData = detail;
+    if (cfg.episodesPath) {
+      const epPath = cfg.episodesPath(item.id, state.currentLang, key);
+      if (epPath) epData = await apiGet(epPath);
+    }
+
+    state.episodes = normalizeEpisodes(epData);
+    ui.rawJson.textContent = JSON.stringify({ detail, episodes: state.episodes.map((x) => x.raw) }, null, 2);
+
+    const extra = findValue(detail, ["synopsis", "desc", "description", "intro", "summary"]);
+    ui.detailMeta.textContent = `${platforms[state.currentPlatform].label} • ${state.episodes.length} episode${
+      state.episodes.length > 1 ? "s" : ""
+    }${extra ? `\n\n${String(extra).slice(0, 260)}` : ""}`;
+
+    renderEpisodes();
+
+    if (state.episodes[0]) {
+      await playEpisode(state.episodes[0]);
+    }
+  } catch (err) {
+    console.error(err);
+    ui.episodeList.innerHTML = `<div class="empty">Gagal memuat detail: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderEpisodes() {
+  if (!state.episodes.length) {
+    ui.episodeList.innerHTML = `<div class="empty">Episode belum tersedia / endpoint tidak mengembalikan list episode.</div>`;
+    return;
+  }
+
+  const sorted = [...state.episodes].sort((a, b) => a.no - b.no);
+  ui.episodeList.innerHTML = sorted
+    .map((ep) => `<button class="ep-btn" data-ep="${escapeHtml(ep.id)}">E${ep.no}</button>`)
+    .join("");
+
+  ui.episodeList.querySelectorAll(".ep-btn").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-ep");
+      const ep = state.episodes.find((x) => String(x.id) === String(id));
+      if (ep) await playEpisode(ep);
+    });
+  });
+}
+
+async function resolvePlayUrl(ep) {
+  const cfg = platforms[state.currentPlatform];
+
+  if (ep.url) return ep.url;
+
+  if (cfg.episodeToVideoPath) {
+    const data = await apiGet(cfg.episodeToVideoPath(ep.id, state.currentLang, state.apiKey));
+    const found = findFirstUrl(data);
+    if (found) return found;
+  }
+
+  if (state.detailData) {
+    const fromDetail = findFirstUrl(state.detailData);
+    if (fromDetail) return fromDetail;
+  }
+
+  return "";
+}
+
+async function playEpisode(ep) {
+  ui.playerInfo.textContent = `Mencari source Episode ${ep.no}...`;
+
+  try {
+    const url = await resolvePlayUrl(ep);
+    if (!url) {
+      ui.playerInfo.textContent = `Episode ${ep.no}: URL video tidak ditemukan.`;
+      return;
+    }
+
+    loadPlayer(url);
+    ui.playerInfo.textContent = `Now playing: Episode ${ep.no} • ${ep.title}`;
+  } catch (err) {
+    ui.playerInfo.textContent = `Gagal play Episode ${ep.no}: ${err.message}`;
+  }
+}
+
+function loadPlayer(url) {
+  if (hlsInstance) {
+    hlsInstance.destroy();
+    hlsInstance = null;
+  }
+
+  const video = ui.player;
+
+  if (url.includes(".m3u8") && window.Hls && Hls.isSupported()) {
+    hlsInstance = new Hls();
+    hlsInstance.loadSource(url);
+    hlsInstance.attachMedia(video);
+  } else {
+    video.src = url;
+  }
+
+  video.play().catch(() => {
+    // autoplay blocked by browser; user can click play
+  });
+}
+
+function bindEvents() {
+  ui.saveKeyBtn.addEventListener("click", () => {
+    state.apiKey = ui.apiKey.value.trim() || DEFAULT_KEY;
+    saveLocal();
+    setStatus("API key disimpan.");
+  });
+
+  ui.platformSelect.addEventListener("change", () => {
+    state.currentPlatform = ui.platformSelect.value;
+    state.currentLang = platforms[state.currentPlatform].defaultLang;
+    buildLangSelect();
+    saveLocal();
+    setStatus(`Platform diubah ke ${platforms[state.currentPlatform].label}.`);
+  });
+
+  ui.langSelect.addEventListener("change", () => {
+    state.currentLang = ui.langSelect.value;
+    saveLocal();
+  });
+
+  ui.searchBtn.addEventListener("click", searchDrama);
+  ui.queryInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") searchDrama();
+  });
+}
+
+function init() {
+  loadLocal();
+  buildPlatformSelect();
+  buildLangSelect();
+  ui.apiKey.value = state.apiKey;
+  ui.queryInput.value = "cinta";
+  bindEvents();
+  renderResults();
+  setStatus("Ready. Pilih platform lalu cari drama.");
+}
+
+init();

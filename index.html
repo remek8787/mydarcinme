@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyDrama Hub</title>
+  <meta name="description" content="Nonton drama dari Dramabox, Melolo, dan Shortmax dalam satu website." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>🎬 MyDrama Hub</h1>
+      <p>Dramabox • Melolo • Shortmax</p>
+    </div>
+    <a class="gh-link" href="https://github.com/remek8787/mydrama" target="_blank" rel="noopener">GitHub Repo</a>
+  </header>
+
+  <main class="layout">
+    <aside class="panel left">
+      <h2>Pengaturan</h2>
+
+      <label>API Key / Token</label>
+      <div class="row">
+        <input id="apiKey" type="password" placeholder="Masukkan API key" />
+        <button id="saveKeyBtn">Simpan</button>
+      </div>
+      <small>Token disimpan di browser kamu (localStorage).</small>
+
+      <label>Platform</label>
+      <select id="platformSelect"></select>
+
+      <label>Bahasa</label>
+      <select id="langSelect"></select>
+
+      <label>Kata kunci</label>
+      <div class="row">
+        <input id="queryInput" type="text" placeholder="Contoh: cinta" />
+        <button id="searchBtn" class="primary">Cari</button>
+      </div>
+
+      <div id="status" class="status">Siap mencari drama…</div>
+
+      <hr>
+      <h3>Dokumentasi Referensi</h3>
+      <ul class="links">
+        <li><a href="https://dramabox.dramabos.my.id/api.html" target="_blank" rel="noopener">Dramabox API</a></li>
+        <li><a href="https://melolo.dramabos.my.id/api.html" target="_blank" rel="noopener">Melolo API</a></li>
+        <li><a href="https://shortmax.dramabos.my.id/api.html" target="_blank" rel="noopener">Shortmax API</a></li>
+      </ul>
+    </aside>
+
+    <section class="panel content">
+      <div class="grid-title">
+        <h2>Hasil Pencarian</h2>
+        <span id="resultCount">0 hasil</span>
+      </div>
+      <div id="resultGrid" class="result-grid"></div>
+    </section>
+
+    <aside class="panel right">
+      <h2 id="detailTitle">Detail Drama</h2>
+      <div id="detailMeta" class="meta">Pilih drama dari hasil pencarian.</div>
+
+      <div class="player-wrap">
+        <video id="videoPlayer" controls playsinline></video>
+      </div>
+      <div id="playerInfo" class="status">Belum ada video diputar.</div>
+
+      <h3>Episode</h3>
+      <div id="episodeList" class="episode-list"></div>
+
+      <details>
+        <summary>Raw JSON (debug)</summary>
+        <pre id="rawJson">{}</pre>
+      </details>
+    </aside>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="app.js"></script>
+</body>
+</html>
