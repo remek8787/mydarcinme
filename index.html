@@ -4,104 +4,133 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MyDrama Hub Player</title>
-  <meta name="description" content="Hub player untuk Dramabox, Melolo, dan Shortmax." />
+  <meta name="description" content="Hub player untuk Dramabox, Melolo, dan Shortmax dengan rekomendasi otomatis." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link rel="stylesheet" href="style.css" />
 </head>
-<body>
-  <header class="topbar">
-    <div>
-      <h1>🎬 MyDrama Hub Player</h1>
-      <p>Dramabox • Melolo • Shortmax</p>
-    </div>
-    <div class="topbar-actions">
-      <a class="gh-link" href="portal.html">Portal</a>
-      <a class="gh-link" href="https://github.com/remek8787/mydrama" target="_blank" rel="noopener">GitHub Repo</a>
-    </div>
-  </header>
-
-  <main class="layout">
-    <aside class="panel left">
-      <h2>Pengaturan</h2>
-
-      <label>API Key / Token</label>
-      <div class="row">
-        <input id="apiKey" type="password" placeholder="Masukkan API key" />
-        <button id="saveKeyBtn">Simpan</button>
+<body class="app-body">
+  <nav class="navbar navbar-expand-lg top-nav">
+    <div class="container-fluid px-3 px-lg-4">
+      <a class="navbar-brand fw-bold" href="#">🎬 MyDrama Hub Player</a>
+      <div class="d-flex gap-2">
+        <a class="btn btn-sm btn-outline-light" href="portal.html">Portal</a>
+        <a class="btn btn-sm btn-outline-info" href="https://github.com/remek8787/mydrama" target="_blank" rel="noopener">GitHub Repo</a>
       </div>
-      <small>Token disimpan di browser kamu (localStorage).</small>
+    </div>
+  </nav>
 
-      <label>Platform</label>
-      <select id="platformSelect"></select>
+  <main class="container-fluid py-3 px-3 px-lg-4">
+    <div class="row g-3 align-items-stretch">
+      <div class="col-12 col-xl-3">
+        <section class="panel p-3 h-100">
+          <h3 class="h4 mb-3">Pengaturan</h3>
 
-      <label>Bahasa</label>
-      <select id="langSelect"></select>
-
-      <label>Kata kunci</label>
-      <div class="row">
-        <input id="queryInput" type="text" placeholder="Opsional (kosong = beranda)" />
-        <button id="searchBtn" class="primary">Cari</button>
-      </div>
-
-      <div id="status" class="status">Siap mencari drama…</div>
-
-      <hr>
-      <h3>Dokumentasi Referensi</h3>
-      <ul class="links">
-        <li><a href="https://dramabox.dramabos.my.id/api.html" target="_blank" rel="noopener">Dramabox API</a></li>
-        <li><a href="https://melolo.dramabos.my.id/api.html" target="_blank" rel="noopener">Melolo API</a></li>
-        <li><a href="https://shortmax.dramabos.my.id/api.html" target="_blank" rel="noopener">Shortmax API</a></li>
-      </ul>
-    </aside>
-
-    <section class="panel content">
-      <section id="heroBanner" class="hero-banner">
-        <img id="heroImage" src="https://dummyimage.com/1200x500/0f172a/94a3b8&text=MyDrama+Hub" alt="Featured Drama" />
-        <div class="hero-overlay">
-          <span id="heroBadge" class="hero-badge">Featured</span>
-          <h2 id="heroTitle">Selamat datang di MyDrama Hub</h2>
-          <p id="heroDesc">Pilih platform lalu klik Cari untuk memulai. Sekarang sudah support autoplay beranda tanpa keyword.</p>
-          <div class="hero-actions">
-            <button id="heroWatchBtn" class="primary">▶ Tonton Sekarang</button>
-            <button id="heroRefreshBtn">↻ Muat Beranda</button>
+          <label class="form-label">API Key / Token</label>
+          <div class="input-group mb-1">
+            <input id="apiKey" type="password" class="form-control" placeholder="Masukkan API key" />
+            <button id="saveKeyBtn" class="btn btn-primary">Simpan</button>
           </div>
-        </div>
-      </section>
+          <div class="hint mb-3">Token disimpan di browser kamu (localStorage).</div>
 
-      <div class="grid-title">
-        <h2>Hasil Pencarian</h2>
-        <span id="resultCount">0 hasil</span>
+          <label class="form-label">Platform</label>
+          <select id="platformSelect" class="form-select mb-3"></select>
+
+          <label class="form-label">Bahasa</label>
+          <select id="langSelect" class="form-select mb-3"></select>
+
+          <label class="form-label">Kata kunci</label>
+          <div class="input-group mb-2">
+            <input id="queryInput" type="text" class="form-control" placeholder="Cari drama..." />
+            <button id="searchBtn" class="btn btn-info text-dark fw-semibold">Cari</button>
+          </div>
+
+          <div id="status" class="status mb-3">Siap mencari drama…</div>
+
+          <h4 class="h6 text-uppercase text-info mb-2">Rekomendasi API</h4>
+          <div id="feedButtons" class="feed-buttons mb-2">
+            <button class="feed-btn active" data-feed="homepage">Homepage</button>
+            <button class="feed-btn" data-feed="latest">Latest</button>
+            <button class="feed-btn" data-feed="dubbed">Dubbed</button>
+            <button class="feed-btn" data-feed="foryou">For You</button>
+            <button class="feed-btn" data-feed="popular">Popular</button>
+          </div>
+          <div id="popularKeywords" class="keyword-wrap mb-3"></div>
+
+          <hr class="border-secondary-subtle">
+          <h4 class="h6 mb-2">Dokumentasi Referensi</h4>
+          <ul class="mb-0 ps-3 small link-list">
+            <li><a href="https://dramabox.dramabos.my.id/api.html" target="_blank" rel="noopener">Dramabox API</a></li>
+            <li><a href="https://melolo.dramabos.my.id/api.html" target="_blank" rel="noopener">Melolo API</a></li>
+            <li><a href="https://shortmax.dramabos.my.id/api.html" target="_blank" rel="noopener">Shortmax API</a></li>
+          </ul>
+        </section>
       </div>
-      <div id="resultGrid" class="result-grid"></div>
-    </section>
 
-    <aside class="panel right">
-      <h2 id="detailTitle">Detail Drama</h2>
-      <div id="detailMeta" class="meta">Pilih drama dari hasil pencarian.</div>
+      <div class="col-12 col-xl-6">
+        <section class="panel p-3 mb-3">
+          <div id="heroBanner" class="hero-banner">
+            <img id="heroImage" src="https://dummyimage.com/1200x500/0f172a/94a3b8&text=MyDrama+Hub" alt="Featured Drama" />
+            <div class="hero-overlay">
+              <span id="heroBadge" class="hero-badge">Featured</span>
+              <h2 id="heroTitle">Selamat datang di MyDrama Hub</h2>
+              <p id="heroDesc">Pilih platform lalu klik Cari untuk memulai.</p>
+              <div class="d-flex flex-wrap gap-2 mt-1">
+                <button id="heroWatchBtn" class="btn btn-success btn-sm"><i class="bi bi-play-fill"></i> Tonton Sekarang</button>
+                <button id="heroRefreshBtn" class="btn btn-outline-light btn-sm"><i class="bi bi-arrow-clockwise"></i> Muat Ulang</button>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <div class="player-wrap">
-        <video id="videoPlayer" controls playsinline></video>
+        <section class="panel p-3 mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="h5 mb-0">Rekomendasi</h3>
+            <span id="recStatus" class="small text-info">Homepage</span>
+          </div>
+          <div id="recommendGrid" class="result-grid"></div>
+        </section>
+
+        <section class="panel p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="h5 mb-0">Hasil Pencarian</h3>
+            <span id="resultCount" class="small text-secondary">0 hasil</span>
+          </div>
+          <div id="resultGrid" class="result-grid"></div>
+        </section>
       </div>
-      <div id="playerInfo" class="status">Belum ada video diputar.</div>
 
-      <div class="episode-head">
-        <h3>Episode</h3>
-        <label class="auto-next">
-          <input id="autoNextToggle" type="checkbox" checked />
-          Auto lanjut
-        </label>
+      <div class="col-12 col-xl-3">
+        <section class="panel p-3 h-100">
+          <h3 id="detailTitle" class="h4 mb-2">Detail Drama</h3>
+          <div id="detailMeta" class="meta mb-3">Pilih drama dari hasil pencarian.</div>
+
+          <div class="player-wrap mb-2">
+            <video id="videoPlayer" controls playsinline></video>
+          </div>
+          <div id="playerInfo" class="status mb-3">Belum ada video diputar.</div>
+
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <h4 class="h5 mb-0">Episode</h4>
+            <label class="auto-next">
+              <input id="autoNextToggle" type="checkbox" checked />
+              Auto lanjut
+            </label>
+          </div>
+          <div id="episodeSummary" class="episode-summary">0 episode</div>
+          <div id="episodePagination" class="episode-pagination mb-2"></div>
+          <div id="episodeList" class="episode-list mb-2"></div>
+
+          <details>
+            <summary>Raw JSON (debug)</summary>
+            <pre id="rawJson">{}</pre>
+          </details>
+        </section>
       </div>
-      <div id="episodeSummary" class="episode-summary">0 episode</div>
-      <div id="episodePagination" class="episode-pagination"></div>
-      <div id="episodeList" class="episode-list"></div>
-
-      <details>
-        <summary>Raw JSON (debug)</summary>
-        <pre id="rawJson">{}</pre>
-      </details>
-    </aside>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>

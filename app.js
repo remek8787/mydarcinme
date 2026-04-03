@@ -6,6 +6,13 @@ const platforms = {
     base: "https://dramabox.dramabos.my.id",
     langs: ["in", "en", "th", "vi", "ja", "ko"],
     defaultLang: "in",
+    feedPaths: {
+      homepage: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
+      latest: (lang) => `/api/v1/latest?lang=${enc(lang)}`,
+      dubbed: (lang) => `/api/v1/dubbed?classify=terpopuler&page=1&lang=${enc(lang)}`,
+      foryou: (lang) => `/api/v1/foryou?lang=${enc(lang)}`,
+      popular: (lang) => `/api/v1/populersearch?lang=${enc(lang)}`
+    },
     homePath: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
     searchPath: (q, lang) => `/api/v1/search?query=${enc(q)}&lang=${enc(lang)}`,
     detailPath: (id, lang, key) => `/api/v1/detail?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
@@ -21,6 +28,9 @@ const platforms = {
     base: "https://melolo.dramabos.my.id",
     langs: ["id", "en", "es", "ko", "th", "ja", "de", "fr", "pt", "ar", "tr"],
     defaultLang: "id",
+    feedPaths: {
+      homepage: (lang) => `/api/home?lang=${enc(lang)}&offset=0`
+    },
     homePath: (lang) => `/api/home?lang=${enc(lang)}&offset=0`,
     searchPath: (q, lang) => `/api/search?lang=${enc(lang)}&q=${enc(q)}`,
     detailPath: (id, lang) => `/api/detail/${enc(id)}?lang=${enc(lang)}`,
@@ -36,6 +46,9 @@ const platforms = {
     base: "https://shortmax.dramabos.my.id",
     langs: ["in", "en", "th", "vi", "es", "pt", "de", "fr", "ja", "ko", "ar"],
     defaultLang: "in",
+    feedPaths: {
+      homepage: (lang) => `/api/home?lang=${enc(lang)}&page=1&size=30`
+    },
     homePath: (lang) => `/api/home?lang=${enc(lang)}&page=1&size=30`,
     searchPath: (q, lang) => `/api/search?lang=${enc(lang)}&q=${enc(q)}&size=20`,
     detailPath: null,
@@ -59,7 +72,10 @@ const state = {
   currentEpisodeId: null,
   episodesPage: 1,
   episodesPerPage: 24,
-  autoNext: true
+  autoNext: true,
+  recommendedResults: [],
+  activeFeed: "homepage",
+  popularKeywords: []
 };
 
 let hlsInstance = null;
@@ -78,6 +94,10 @@ const ui = {
   heroDesc: byId("heroDesc"),
   heroWatchBtn: byId("heroWatchBtn"),
   heroRefreshBtn: byId("heroRefreshBtn"),
+  feedButtons: byId("feedButtons"),
+  recStatus: byId("recStatus"),
+  recommendGrid: byId("recommendGrid"),
+  popularKeywords: byId("popularKeywords"),
   resultCount: byId("resultCount"),
   resultGrid: byId("resultGrid"),
   detailTitle: byId("detailTitle"),
@@ -299,6 +319,76 @@ function normalizeItems(rawItems) {
   });
 }
 
+function extractDramaItems(data) {
+  let list = [];
+
+  const meloloCellRows = getByPath(data, "data.cell.cell_data");
+  if (Array.isArray(meloloCellRows) && meloloCellRows.length) {
+    list = meloloCellRows.flatMap((row) => (Array.isArray(row?.books) ? row.books : []));
+  }
+
+  if (!list.length) {
+    list = pickLikelyArray(data, [
+      "recommendList.records",
+      "recommendList",
+      "records",
+      "result.records",
+      "result.list",
+      "result",
+      "data.records",
+      "data.list",
+      "data.books",
+      "data",
+      "list",
+      "items"
+    ]);
+  }
+
+  return normalizeItems(list);
+}
+
+function extractKeywordSuggestions(data) {
+  const preferPaths = [
+    "keywords",
+    "data.keywords",
+    "list",
+    "data.list",
+    "records",
+    "data.records",
+    "result",
+    "data"
+  ];
+
+  for (const p of preferPaths) {
+    const val = getByPath(data, p);
+    if (Array.isArray(val) && val.length && typeof val[0] === "string") {
+      return val.map((x) => String(x).trim()).filter(Boolean);
+    }
+
+    if (Array.isArray(val) && val.length && typeof val[0] === "object") {
+      const fromObj = val
+        .map((x) => x.keyword || x.keyWord || x.name || x.title || "")
+        .map((x) => String(x).trim())
+        .filter(Boolean);
+      if (fromObj.length) return fromObj;
+    }
+  }
+
+  const arrays = deepCollectArrays(data).filter((arr) => Array.isArray(arr) && arr.length);
+  for (const arr of arrays) {
+    if (typeof arr[0] === "string") return arr.map((x) => String(x).trim()).filter(Boolean);
+    if (typeof arr[0] === "object") {
+      const fromObj = arr
+        .map((x) => x.keyword || x.keyWord || x.name || x.title || "")
+        .map((x) => String(x).trim())
+        .filter(Boolean);
+      if (fromObj.length) return fromObj;
+    }
+  }
+
+  return [];
+}
+
 function updateHero(item) {
   const cfg = platforms[state.currentPlatform];
 
@@ -339,7 +429,7 @@ function renderResults() {
 
   ui.resultGrid.innerHTML = state.searchResults
     .map((item, idx) => `
-      <article class="card ${state.selectedItem && String(state.selectedItem.id) === String(item.id) ? "active" : ""}" data-idx="${idx}">
+      <article class="drama-card ${state.selectedItem && String(state.selectedItem.id) === String(item.id) ? "active" : ""}" data-idx="${idx}">
         <img src="${item.image || "https://dummyimage.com/400x600/0f172a/94a3b8&text=No+Cover"}" alt="${escapeHtml(item.title)}" loading="lazy" />
         <div class="info">
           <div class="title">${escapeHtml(item.title)}</div>
@@ -349,10 +439,75 @@ function renderResults() {
     `)
     .join("");
 
-  ui.resultGrid.querySelectorAll(".card").forEach((el) => {
+  ui.resultGrid.querySelectorAll(".drama-card").forEach((el) => {
     el.addEventListener("click", () => {
       const idx = Number(el.getAttribute("data-idx"));
       const item = state.searchResults[idx];
+      if (item) loadDetail(item);
+    });
+  });
+}
+
+function renderPopularKeywords() {
+  if (!ui.popularKeywords) return;
+
+  if (!state.popularKeywords.length) {
+    ui.popularKeywords.innerHTML = "";
+    return;
+  }
+
+  ui.popularKeywords.innerHTML = state.popularKeywords
+    .slice(0, 12)
+    .map(
+      (kw) =>
+        `<button type="button" class="keyword-chip" data-keyword="${escapeHtml(kw)}">${escapeHtml(kw)}</button>`
+    )
+    .join("");
+
+  ui.popularKeywords.querySelectorAll(".keyword-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const kw = btn.getAttribute("data-keyword") || "";
+      ui.queryInput.value = kw;
+      searchDrama();
+    });
+  });
+}
+
+function renderRecommendations() {
+  if (!ui.recommendGrid) return;
+
+  const feedLabelMap = {
+    homepage: "Homepage",
+    latest: "Latest",
+    dubbed: "Dubbed",
+    foryou: "For You",
+    popular: "Popular"
+  };
+
+  const feedLabel = feedLabelMap[state.activeFeed] || state.activeFeed;
+  if (ui.recStatus) ui.recStatus.textContent = feedLabel;
+
+  if (!state.recommendedResults.length) {
+    ui.recommendGrid.innerHTML = `<div class="empty">Belum ada rekomendasi untuk menu ${feedLabel}.</div>`;
+    return;
+  }
+
+  ui.recommendGrid.innerHTML = state.recommendedResults
+    .map((item, idx) => `
+      <article class="drama-card ${state.selectedItem && String(state.selectedItem.id) === String(item.id) ? "active" : ""}" data-rec-idx="${idx}">
+        <img src="${item.image || "https://dummyimage.com/400x600/0f172a/94a3b8&text=No+Cover"}" alt="${escapeHtml(item.title)}" loading="lazy" />
+        <div class="info">
+          <div class="title">${escapeHtml(item.title)}</div>
+          <div class="sub">${escapeHtml(item.subtitle || item.id || "")}</div>
+        </div>
+      </article>
+    `)
+    .join("");
+
+  ui.recommendGrid.querySelectorAll(".drama-card").forEach((el) => {
+    el.addEventListener("click", () => {
+      const idx = Number(el.getAttribute("data-rec-idx"));
+      const item = state.recommendedResults[idx];
       if (item) loadDetail(item);
     });
   });
@@ -411,37 +566,74 @@ async function loadHomeContent() {
 
   try {
     const data = await apiGet(cfg.homePath(state.currentLang));
-    let list = [];
-
-    // Melolo home response usually nested in data.cell.cell_data[].books[]
-    const meloloCellRows = getByPath(data, "data.cell.cell_data");
-    if (Array.isArray(meloloCellRows) && meloloCellRows.length) {
-      list = meloloCellRows.flatMap((row) => (Array.isArray(row?.books) ? row.books : []));
-    }
-
-    if (!list.length) {
-      list = pickLikelyArray(data, [
-        "recommendList.records",
-        "recommendList",
-        "records",
-        "result.records",
-        "result.list",
-        "result",
-        "data.records",
-        "data.list",
-        "data.books",
-        "data",
-        "list",
-        "items"
-      ]);
-    }
-
-    state.searchResults = normalizeItems(list);
+    state.searchResults = extractDramaItems(data);
     renderResults();
     setStatus(`Beranda dimuat. Menampilkan ${state.searchResults.length} judul.`);
   } catch (err) {
     console.error(err);
     setStatus(`Gagal memuat beranda: ${err.message}`);
+  }
+}
+
+async function loadFeedContent(feedKey = "homepage") {
+  const cfg = platforms[state.currentPlatform];
+  const feedPathFn = cfg.feedPaths?.[feedKey];
+
+  state.activeFeed = feedKey;
+
+  if (ui.feedButtons) {
+    ui.feedButtons.querySelectorAll(".feed-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.getAttribute("data-feed") === feedKey);
+    });
+  }
+
+  if (!feedPathFn) {
+    state.recommendedResults = [];
+    if (feedKey === "popular") state.popularKeywords = [];
+    renderRecommendations();
+    renderPopularKeywords();
+    return;
+  }
+
+  setStatus(`Memuat rekomendasi ${feedKey}...`);
+
+  try {
+    const path = feedPathFn(state.currentLang, state.apiKey);
+    const data = await apiGet(path);
+    state.recommendedResults = extractDramaItems(data);
+
+    if (feedKey === "popular") {
+      state.popularKeywords = extractKeywordSuggestions(data);
+    }
+
+    renderRecommendations();
+    renderPopularKeywords();
+    setStatus(`Rekomendasi ${feedKey} dimuat (${state.recommendedResults.length} judul).`);
+  } catch (err) {
+    if (feedKey === "popular") {
+      state.popularKeywords = [];
+    }
+    state.recommendedResults = [];
+    renderRecommendations();
+    renderPopularKeywords();
+    setStatus(`Feed ${feedKey} gagal dimuat: ${err.message}`);
+  }
+}
+
+function refreshFeedButtonsAvailability() {
+  if (!ui.feedButtons) return;
+  const cfg = platforms[state.currentPlatform];
+  const availableFeeds = cfg.feedPaths || {};
+
+  ui.feedButtons.querySelectorAll(".feed-btn").forEach((btn) => {
+    const feed = btn.getAttribute("data-feed") || "homepage";
+    const enabled = Boolean(availableFeeds[feed]);
+    btn.disabled = !enabled;
+    btn.classList.toggle("disabled", !enabled);
+  });
+
+  if (!availableFeeds[state.activeFeed]) {
+    state.activeFeed = "homepage";
   }
 }
 
@@ -813,6 +1005,15 @@ function loadPlayer(url) {
 }
 
 function bindEvents() {
+  if (ui.feedButtons) {
+    ui.feedButtons.querySelectorAll(".feed-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const feed = btn.getAttribute("data-feed") || "homepage";
+        loadFeedContent(feed);
+      });
+    });
+  }
+
   if (ui.autoNextToggle) {
     ui.autoNextToggle.checked = state.autoNext;
     ui.autoNextToggle.addEventListener("change", () => {
@@ -846,15 +1047,22 @@ function bindEvents() {
     if (ui.episodePagination) ui.episodePagination.innerHTML = "";
     ui.detailTitle.textContent = "Detail Drama";
     ui.detailMeta.textContent = "Pilih drama dari hasil pencarian.";
+    state.recommendedResults = [];
+    state.popularKeywords = [];
+    renderRecommendations();
+    renderPopularKeywords();
     buildLangSelect();
+    refreshFeedButtonsAvailability();
     saveLocal();
     setStatus(`Platform diubah ke ${platforms[state.currentPlatform].label}.`);
+    loadFeedContent("homepage");
     loadHomeContent();
   });
 
   ui.langSelect.addEventListener("change", () => {
     state.currentLang = ui.langSelect.value;
     saveLocal();
+    loadFeedContent(state.activeFeed || "homepage");
     loadHomeContent();
   });
 
@@ -876,6 +1084,7 @@ function bindEvents() {
   });
 
   ui.heroRefreshBtn.addEventListener("click", () => {
+    loadFeedContent(state.activeFeed || "homepage");
     loadHomeContent();
   });
 }
@@ -885,19 +1094,24 @@ function init() {
   const qs = applyUrlOverrides();
   buildPlatformSelect();
   buildLangSelect();
+  refreshFeedButtonsAvailability();
   ui.apiKey.value = state.apiKey;
   ui.queryInput.value = qs.query;
   bindEvents();
+  renderRecommendations();
+  renderPopularKeywords();
   renderResults();
   saveLocal();
 
   if (qs.autoSearch && qs.query) {
+    loadFeedContent("homepage");
     setStatus("Mode auto search dari URL aktif.");
     searchDrama();
     return;
   }
 
   setStatus("Ready. Beranda drama akan dimuat otomatis.");
+  loadFeedContent("homepage");
   loadHomeContent();
 }
 

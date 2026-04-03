@@ -18,9 +18,11 @@ Website portal drama yang siap jalan di **GitHub Pages**.
   - **API** (dokumentasi endpoint)
   - **Nonton** (halaman web provider)
   - **Masuk Hub** (langsung ke player dengan preset platform)
-- Hub player:
+- Hub player (UI baru, Bootstrap CDN + custom dark glass):
   - pilih platform + bahasa
   - search drama / muat beranda otomatis
+  - tab rekomendasi API: `homepage`, `latest`, `dubbed`, `foryou`, `popular`
+  - keyword chips untuk popular search (jika endpoint mendukung)
   - lihat detail + daftar episode
   - pagination episode (bukan cuma tampil 10)
   - auto lanjut ke episode berikutnya setelah selesai
