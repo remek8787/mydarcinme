@@ -1,23 +1,18 @@
-# Dramachina / MyDrama Hub
+# Archilla Dracin Hub Player
 
-Website portal drama yang siap jalan di **GitHub Pages**.
+Website hub drama yang siap jalan di **GitHub Pages**.
 
 ## Struktur Utama
 
 - `index.html` → Hub player utama (langsung kebuka tampilan hub)
 - `hub.html` → Alias halaman hub (isi sama untuk kompatibilitas link lama)
-- `portal.html` → Landing/portal provider (tombol API, Nonton, Masuk Hub)
+- `portal.html` → Landing lama (arsip, tidak dipakai di UI utama)
 - `app.js` → Logic fetch API, detail, episode, video player
 - `style.css` → Styling halaman hub
-- `landing.css` → Styling halaman portal
+- `landing.css` → Styling landing lama
 
 ## Fitur
 
-- Tampilan portal gaya kartu app (mirip referensi)
-- Tombol cepat:
-  - **API** (dokumentasi endpoint)
-  - **Nonton** (halaman web provider)
-  - **Masuk Hub** (langsung ke player dengan preset platform)
 - Hub player (UI baru, Bootstrap CDN + custom dark glass):
   - responsif HP (layout mobile-first, feed/keyword bisa geser horizontal)
   - pilih platform + bahasa
