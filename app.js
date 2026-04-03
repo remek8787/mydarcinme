@@ -50,20 +50,22 @@ const platforms = {
   reelife: {
     label: "Reelife",
     base: "https://reelife.dramabos.my.id",
-    langs: ["in", "en", "th", "vi", "ja", "ko"],
-    defaultLang: "in",
+    langs: ["id", "en", "th", "zh-CN", "zh-TW"],
+    defaultLang: "id",
     feedPaths: {
-      homepage: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
-      latest: (lang) => `/api/v1/latest?lang=${enc(lang)}`,
-      dubbed: (lang) => `/api/v1/dubbed?classify=terpopuler&page=1&lang=${enc(lang)}`,
-      foryou: (lang) => `/api/v1/foryou?lang=${enc(lang)}`,
-      popular: (lang) => `/api/v1/populersearch?lang=${enc(lang)}`
+      homepage: () => `/api/v1/home`,
+      latest: () => `/api/v1/rank`,
+      popular: () => `/api/v1/suggest?q=drama`
     },
-    homePath: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
-    searchPath: (q, lang) => `/api/v1/search?query=${enc(q)}&lang=${enc(lang)}`,
-    detailPath: (id, lang, key) => `/api/v1/detail?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
-    episodesPath: (id, lang, key) => `/api/v1/allepisode?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
-    episodeToVideoPath: null,
+    homePath: () => `/api/v1/home`,
+    searchPath: (q) => `/api/v1/search?q=${enc(q)}`,
+    detailPath: (id) => `/api/v1/book/${enc(id)}`,
+    episodesPath: (id) => `/api/v1/book/${enc(id)}/chapters`,
+    episodeToVideoPath: (ep, lang, key, item) => {
+      const bookId = item?.id || ep.bookId || ep.raw?.bookId;
+      if (!bookId || !ep?.id) return "";
+      return `/api/v1/play/${enc(bookId)}/${enc(ep.id)}?code=${enc(key)}`;
+    },
     idKeys: ["bookId", "id", "dramaId"],
     titleKeys: ["bookName", "title", "name"],
     imageKeys: ["coverWap", "cover", "poster", "image", "bookCover"],
@@ -103,7 +105,7 @@ const platforms = {
     searchPath: (q, lang) => `/api/search?lang=${enc(lang)}&q=${enc(q)}`,
     detailPath: (id, lang) => `/api/detail/${enc(id)}?lang=${enc(lang)}`,
     episodesPath: () => null,
-    episodeToVideoPath: (epId, lang, key) => `/api/video/${enc(epId)}?lang=${enc(lang)}&code=${enc(key)}`,
+    episodeToVideoPath: (ep, lang, key) => `/api/video/${enc(ep?.id || ep)}?lang=${enc(lang)}&code=${enc(key)}`,
     idKeys: ["id", "dramaId", "bookId", "seriesId", "book_id"],
     titleKeys: ["title", "name", "dramaName", "bookName", "book_name"],
     imageKeys: ["cover", "coverUrl", "poster", "img", "image", "thumb_url"],
@@ -786,6 +788,7 @@ function normalizeEpisodes(rawData) {
 
   return arr.map((ep, idx) => {
     const id = String(findValue(ep, cfg.episodeIdKeys) || idx + 1);
+    const bookId = String(ep.bookId || ep.dramaId || ep.seriesId || "");
     const no =
       ep.episodeNum || ep.num || ep.sort || ep.index || ep.seq || ep.order || ep.chapterNum || idx + 1;
     const title = ep.title || ep.name || ep.episodeName || ep.chapterTitle || `Episode ${no}`;
@@ -794,6 +797,7 @@ function normalizeEpisodes(rawData) {
 
     return {
       id,
+      bookId,
       no: Number(no) || idx + 1,
       title: String(title),
       url,
@@ -1055,9 +1059,12 @@ async function resolvePlayUrl(ep) {
   if (ep.url) return ep.url;
 
   if (cfg.episodeToVideoPath) {
-    const data = await apiGet(cfg.episodeToVideoPath(ep.id, state.currentLang, state.apiKey));
-    const found = findFirstUrl(data);
-    if (found) return found;
+    const epPath = cfg.episodeToVideoPath(ep, state.currentLang, state.apiKey, state.selectedItem);
+    if (epPath) {
+      const data = await apiGet(epPath);
+      const found = findFirstUrl(data);
+      if (found) return found;
+    }
   }
 
   if (state.detailData) {
