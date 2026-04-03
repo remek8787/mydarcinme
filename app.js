@@ -24,6 +24,72 @@ const platforms = {
     imageKeys: ["coverWap", "cover", "poster", "image", "bookCover"],
     episodeIdKeys: ["episodeId", "id", "chapterId", "vid", "videoId"]
   },
+  reelshort: {
+    label: "ReelShort",
+    base: "https://reelshort.dramabos.my.id",
+    langs: ["in", "en", "th", "vi", "ja", "ko"],
+    defaultLang: "in",
+    feedPaths: {
+      homepage: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
+      latest: (lang) => `/api/v1/latest?lang=${enc(lang)}`,
+      dubbed: (lang) => `/api/v1/dubbed?classify=terpopuler&page=1&lang=${enc(lang)}`,
+      foryou: (lang) => `/api/v1/foryou?lang=${enc(lang)}`,
+      popular: (lang) => `/api/v1/populersearch?lang=${enc(lang)}`
+    },
+    homePath: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
+    searchPath: (q, lang) => `/api/v1/search?query=${enc(q)}&lang=${enc(lang)}`,
+    detailPath: (id, lang, key) => `/api/v1/detail?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodesPath: (id, lang, key) => `/api/v1/allepisode?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodeToVideoPath: null,
+    idKeys: ["bookId", "id", "dramaId"],
+    titleKeys: ["bookName", "title", "name"],
+    imageKeys: ["coverWap", "cover", "poster", "image", "bookCover"],
+    episodeIdKeys: ["episodeId", "id", "chapterId", "vid", "videoId"]
+  },
+  reelife: {
+    label: "Reelife",
+    base: "https://reelife.dramabos.my.id",
+    langs: ["in", "en", "th", "vi", "ja", "ko"],
+    defaultLang: "in",
+    feedPaths: {
+      homepage: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
+      latest: (lang) => `/api/v1/latest?lang=${enc(lang)}`,
+      dubbed: (lang) => `/api/v1/dubbed?classify=terpopuler&page=1&lang=${enc(lang)}`,
+      foryou: (lang) => `/api/v1/foryou?lang=${enc(lang)}`,
+      popular: (lang) => `/api/v1/populersearch?lang=${enc(lang)}`
+    },
+    homePath: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
+    searchPath: (q, lang) => `/api/v1/search?query=${enc(q)}&lang=${enc(lang)}`,
+    detailPath: (id, lang, key) => `/api/v1/detail?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodesPath: (id, lang, key) => `/api/v1/allepisode?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodeToVideoPath: null,
+    idKeys: ["bookId", "id", "dramaId"],
+    titleKeys: ["bookName", "title", "name"],
+    imageKeys: ["coverWap", "cover", "poster", "image", "bookCover"],
+    episodeIdKeys: ["episodeId", "id", "chapterId", "vid", "videoId"]
+  },
+  idrama: {
+    label: "iDrama",
+    base: "https://idrama.dramabos.my.id",
+    langs: ["in", "en", "th", "vi", "ja", "ko"],
+    defaultLang: "in",
+    feedPaths: {
+      homepage: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
+      latest: (lang) => `/api/v1/latest?lang=${enc(lang)}`,
+      dubbed: (lang) => `/api/v1/dubbed?classify=terpopuler&page=1&lang=${enc(lang)}`,
+      foryou: (lang) => `/api/v1/foryou?lang=${enc(lang)}`,
+      popular: (lang) => `/api/v1/populersearch?lang=${enc(lang)}`
+    },
+    homePath: (lang) => `/api/v1/homepage?page=1&lang=${enc(lang)}`,
+    searchPath: (q, lang) => `/api/v1/search?query=${enc(q)}&lang=${enc(lang)}`,
+    detailPath: (id, lang, key) => `/api/v1/detail?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodesPath: (id, lang, key) => `/api/v1/allepisode?bookId=${enc(id)}&lang=${enc(lang)}&code=${enc(key)}`,
+    episodeToVideoPath: null,
+    idKeys: ["bookId", "id", "dramaId"],
+    titleKeys: ["bookName", "title", "name"],
+    imageKeys: ["coverWap", "cover", "poster", "image", "bookCover"],
+    episodeIdKeys: ["episodeId", "id", "chapterId", "vid", "videoId"]
+  },
   melolo: {
     label: "Melolo",
     base: "https://melolo.dramabos.my.id",

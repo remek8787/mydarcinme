@@ -14,6 +14,7 @@ Website hub drama yang siap jalan di **GitHub Pages**.
 ## Fitur
 
 - Hub player (UI baru, Bootstrap CDN + custom dark glass):
+  - provider: Dramabox, ReelShort, Reelife, iDrama, Melolo, Shortmax
   - responsif HP (layout mobile-first, feed/keyword bisa geser horizontal)
   - pilih platform + bahasa
   - search drama / muat beranda otomatis
