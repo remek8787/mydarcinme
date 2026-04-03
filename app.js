@@ -1,5 +1,6 @@
 const DEFAULT_KEY = "331D2CC91BC4C0B2218052619DBBBA84";
 const SEEK_STEP_SECONDS = 10;
+const THEME_KEY = "archilla_theme";
 
 const platforms = {
   dramabox: {
@@ -176,7 +177,8 @@ const ui = {
   rawJson: byId("rawJson"),
   playerInfo: byId("playerInfo"),
   player: byId("videoPlayer"),
-  tapSeekHint: byId("tapSeekHint")
+  tapSeekHint: byId("tapSeekHint"),
+  themeToggle: byId("themeToggle")
 };
 
 function byId(id) {
@@ -189,6 +191,23 @@ function enc(v) {
 
 function setStatus(msg) {
   ui.status.textContent = msg;
+}
+
+function applyTheme(mode) {
+  const isLight = mode === "light";
+  document.body.classList.toggle("light-mode", isLight);
+
+  if (ui.themeToggle) {
+    ui.themeToggle.textContent = isLight ? "☀️ Light" : "🌙 Dark";
+  }
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved === "light" || saved === "dark") return saved;
+
+  const prefersLight = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches;
+  return prefersLight ? "light" : "dark";
 }
 
 function showTapSeekHint(text) {
@@ -1115,6 +1134,15 @@ function loadPlayer(url) {
 }
 
 function bindEvents() {
+  if (ui.themeToggle) {
+    ui.themeToggle.addEventListener("click", () => {
+      const isLight = document.body.classList.contains("light-mode");
+      const nextMode = isLight ? "dark" : "light";
+      localStorage.setItem(THEME_KEY, nextMode);
+      applyTheme(nextMode);
+    });
+  }
+
   if (ui.feedButtons) {
     ui.feedButtons.querySelectorAll(".feed-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1203,6 +1231,7 @@ function bindEvents() {
 
 function init() {
   loadLocal();
+  applyTheme(loadTheme());
   const qs = applyUrlOverrides();
   buildPlatformSelect();
   buildLangSelect();

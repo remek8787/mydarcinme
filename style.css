@@ -19,9 +19,26 @@ body.app-body {
   min-height: 100vh;
   color: var(--text);
   font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  transition: background 0.35s ease, color 0.25s ease;
   background:
     radial-gradient(1200px 500px at 10% -12%, rgba(82, 115, 255, 0.3), transparent 60%),
     radial-gradient(1200px 500px at 98% 0%, rgba(16, 209, 171, 0.16), transparent 60%),
+    linear-gradient(180deg, var(--bg-2), var(--bg-1));
+}
+
+body.app-body.light-mode {
+  --bg-1: #edf3ff;
+  --bg-2: #f8fbff;
+  --panel: rgba(255, 255, 255, 0.84);
+  --line: rgba(77, 102, 208, 0.24);
+  --text: #1a2340;
+  --muted: #5d6c95;
+  --accent: #2c72ff;
+  --accent-2: #4c74ff;
+  --ok: #12b98f;
+  background:
+    radial-gradient(1200px 500px at 10% -12%, rgba(106, 131, 255, 0.16), transparent 60%),
+    radial-gradient(1200px 500px at 98% 0%, rgba(35, 192, 160, 0.1), transparent 60%),
     linear-gradient(180deg, var(--bg-2), var(--bg-1));
 }
 
@@ -46,6 +63,15 @@ body.app-body {
   color: #e3ebff;
 }
 
+body.app-body.light-mode .btn-outline-light {
+  border-color: rgba(89, 112, 204, 0.35);
+  color: #2b3d73;
+}
+
+#themeToggle {
+  min-width: 98px;
+}
+
 .top-nav {
   position: sticky;
   top: 0;
@@ -53,6 +79,10 @@ body.app-body {
   backdrop-filter: blur(10px);
   background: rgba(5, 10, 24, 0.8);
   border-bottom: 1px solid var(--line);
+}
+
+body.app-body.light-mode .top-nav {
+  background: rgba(245, 249, 255, 0.88);
 }
 
 .navbar-brand {
@@ -89,11 +119,19 @@ body.app-body {
   font-size: 16px;
 }
 
+body.app-body.light-mode .brand-text strong {
+  color: #1e2b53;
+}
+
 .brand-text small {
   color: #9eb0e7;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+body.app-body.light-mode .brand-text small {
+  color: #6176ac;
 }
 
 .ui-badge {
@@ -106,12 +144,23 @@ body.app-body {
   letter-spacing: 0.04em;
 }
 
+body.app-body.light-mode .ui-badge {
+  border-color: rgba(18, 185, 143, 0.45);
+  background: rgba(18, 185, 143, 0.1);
+  color: #0f7a5f;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: var(--panel);
   backdrop-filter: blur(10px);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  animation: panelFadeUp 0.45s ease both;
+}
+
+body.app-body.light-mode .panel {
+  box-shadow: 0 12px 34px rgba(68, 85, 146, 0.15);
 }
 
 .section-title {
@@ -128,6 +177,10 @@ body.app-body {
   color: #95a4d8;
   font-size: 12px;
   margin-bottom: 12px;
+}
+
+body.app-body.light-mode .panel-subtitle {
+  color: #6072a2;
 }
 
 .form-label,
@@ -154,6 +207,12 @@ body.app-body {
   color: var(--text);
 }
 
+body.app-body.light-mode .form-control,
+body.app-body.light-mode .form-select {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(92, 115, 214, 0.36);
+}
+
 .form-control:focus,
 .form-select:focus {
   background: rgba(5, 10, 24, 0.92);
@@ -171,6 +230,10 @@ body.app-body {
   background: rgba(4, 8, 20, 0.56);
 }
 
+body.app-body.light-mode .status {
+  background: rgba(244, 248, 255, 0.82);
+}
+
 .feed-buttons {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -185,6 +248,11 @@ body.app-body {
   padding: 8px 10px;
   font-size: 12px;
   transition: 0.16s ease;
+}
+
+body.app-body.light-mode .feed-btn {
+  background: rgba(242, 246, 255, 0.95);
+  color: #2f3f71;
 }
 
 .feed-btn.active {
@@ -214,6 +282,11 @@ body.app-body {
   font-size: 11px;
 }
 
+body.app-body.light-mode .keyword-chip {
+  color: #0e7f60;
+  background: rgba(18, 185, 143, 0.12);
+}
+
 .link-list a {
   text-decoration: none;
 }
@@ -232,6 +305,10 @@ body.app-body {
   background: #030611;
 }
 
+body.app-body.light-mode .hero-banner {
+  background: #dce8ff;
+}
+
 .hero-banner img {
   width: 100%;
   height: 310px;
@@ -247,6 +324,10 @@ body.app-body {
   justify-content: flex-end;
   gap: 7px;
   background: linear-gradient(to top, rgba(4, 8, 20, 0.95) 8%, rgba(4, 8, 20, 0.3) 56%, rgba(4, 8, 20, 0.08) 100%);
+}
+
+body.app-body.light-mode .hero-overlay {
+  background: linear-gradient(to top, rgba(238, 245, 255, 0.95) 8%, rgba(238, 245, 255, 0.35) 56%, rgba(238, 245, 255, 0.08) 100%);
 }
 
 .hero-badge {
@@ -272,6 +353,10 @@ body.app-body {
   max-width: 82%;
 }
 
+body.app-body.light-mode .hero-overlay p {
+  color: #3f548a;
+}
+
 .result-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -285,6 +370,11 @@ body.app-body {
   background: rgba(3, 8, 22, 0.82);
   cursor: pointer;
   transition: 0.18s ease;
+  animation: cardFadeIn 0.45s ease both;
+}
+
+body.app-body.light-mode .drama-card {
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .drama-card:hover {
@@ -328,6 +418,10 @@ body.app-body {
   border-radius: 10px;
   overflow: hidden;
   background: #000;
+}
+
+body.app-body.light-mode .player-wrap {
+  background: #cbd8f7;
 }
 
 #videoPlayer {
@@ -450,6 +544,33 @@ pre {
   background: rgba(2, 5, 16, 0.9);
   color: #d8e2ff;
   font-size: 11px;
+}
+
+body.app-body.light-mode pre {
+  background: #f4f8ff;
+  color: #23345f;
+}
+
+@keyframes panelFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .empty {
