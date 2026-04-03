@@ -17,7 +17,7 @@
       <p>Dramabox • Melolo • Shortmax</p>
     </div>
     <div class="topbar-actions">
-      <a class="gh-link" href="index.html">Portal</a>
+      <a class="gh-link" href="portal.html">Portal</a>
       <a class="gh-link" href="https://github.com/remek8787/mydrama" target="_blank" rel="noopener">GitHub Repo</a>
     </div>
   </header>
@@ -86,7 +86,15 @@
       </div>
       <div id="playerInfo" class="status">Belum ada video diputar.</div>
 
-      <h3>Episode</h3>
+      <div class="episode-head">
+        <h3>Episode</h3>
+        <label class="auto-next">
+          <input id="autoNextToggle" type="checkbox" checked />
+          Auto lanjut
+        </label>
+      </div>
+      <div id="episodeSummary" class="episode-summary">0 episode</div>
+      <div id="episodePagination" class="episode-pagination"></div>
       <div id="episodeList" class="episode-list"></div>
 
       <details>

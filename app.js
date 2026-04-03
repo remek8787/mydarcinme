@@ -55,7 +55,11 @@ const state = {
   searchResults: [],
   selectedItem: null,
   detailData: null,
-  episodes: []
+  episodes: [],
+  currentEpisodeId: null,
+  episodesPage: 1,
+  episodesPerPage: 24,
+  autoNext: true
 };
 
 let hlsInstance = null;
@@ -78,6 +82,9 @@ const ui = {
   resultGrid: byId("resultGrid"),
   detailTitle: byId("detailTitle"),
   detailMeta: byId("detailMeta"),
+  episodeSummary: byId("episodeSummary"),
+  episodePagination: byId("episodePagination"),
+  autoNextToggle: byId("autoNextToggle"),
   episodeList: byId("episodeList"),
   rawJson: byId("rawJson"),
   playerInfo: byId("playerInfo"),
@@ -499,10 +506,115 @@ function isEpisodeLocked(rawEp, url) {
   return false;
 }
 
+function episodeKey(ep) {
+  return `${String(ep.id || "")}|${Number(ep.no) || 0}`;
+}
+
+function mergeEpisodeLists(lists) {
+  const map = new Map();
+
+  for (const list of lists) {
+    for (const ep of list) {
+      const key = episodeKey(ep);
+      const prev = map.get(key);
+      if (!prev) {
+        map.set(key, { ...ep });
+        continue;
+      }
+
+      map.set(key, {
+        ...prev,
+        ...ep,
+        url: prev.url || ep.url,
+        title: prev.title && prev.title !== `Episode ${prev.no}` ? prev.title : ep.title,
+        locked: prev.locked && ep.locked
+      });
+    }
+  }
+
+  return [...map.values()].sort((a, b) => a.no - b.no);
+}
+
+function setQueryParam(path, key, value) {
+  const [pathname, query = ""] = path.split("?");
+  const params = new URLSearchParams(query);
+  params.set(key, String(value));
+  return `${pathname}?${params.toString()}`;
+}
+
+async function safeApiGet(path) {
+  try {
+    return await apiGet(path);
+  } catch {
+    return null;
+  }
+}
+
+async function fetchMoreEpisodes(baseEpisodePath, firstBatch) {
+  if (!baseEpisodePath || !firstBatch.length || firstBatch.length > 12) return [];
+
+  const collectedKeys = new Set(firstBatch.map(episodeKey));
+
+  const pageModes = [
+    (page, seed) => setQueryParam(baseEpisodePath, "page", page),
+    (page, seed) => setQueryParam(setQueryParam(baseEpisodePath, "page", page), "size", Math.max(seed * 3, 30)),
+    (page, seed) => setQueryParam(setQueryParam(baseEpisodePath, "page", page), "limit", Math.max(seed * 3, 30)),
+    (page, seed) => setQueryParam(baseEpisodePath, "offset", (page - 1) * seed)
+  ];
+
+  for (const buildPath of pageModes) {
+    const page2Data = await safeApiGet(buildPath(2, firstBatch.length));
+    if (!page2Data) continue;
+
+    const page2Episodes = normalizeEpisodes(page2Data);
+    const page2New = page2Episodes.filter((ep) => !collectedKeys.has(episodeKey(ep)));
+    if (!page2New.length) continue;
+
+    page2New.forEach((ep) => collectedKeys.add(episodeKey(ep)));
+    const extraPayloads = [page2Data];
+
+    for (let page = 3; page <= 50; page++) {
+      const nextData = await safeApiGet(buildPath(page, firstBatch.length));
+      if (!nextData) break;
+
+      const nextEpisodes = normalizeEpisodes(nextData);
+      if (!nextEpisodes.length) break;
+
+      const newEpisodes = nextEpisodes.filter((ep) => !collectedKeys.has(episodeKey(ep)));
+      if (!newEpisodes.length) break;
+
+      newEpisodes.forEach((ep) => collectedKeys.add(episodeKey(ep)));
+      extraPayloads.push(nextData);
+
+      if (nextEpisodes.length < firstBatch.length) break;
+    }
+
+    return extraPayloads;
+  }
+
+  return [];
+}
+
+function getSortedEpisodes() {
+  return [...state.episodes].sort((a, b) => a.no - b.no);
+}
+
+function getCurrentEpisodeIndex(sortedEpisodes = getSortedEpisodes()) {
+  if (!sortedEpisodes.length || !state.currentEpisodeId) return -1;
+  return sortedEpisodes.findIndex((ep) => String(ep.id) === String(state.currentEpisodeId));
+}
+
+function jumpToEpisodePageByIndex(index) {
+  if (index < 0) return;
+  state.episodesPage = Math.floor(index / state.episodesPerPage) + 1;
+}
+
 async function loadDetail(item) {
   state.selectedItem = item;
   state.detailData = null;
   state.episodes = [];
+  state.currentEpisodeId = null;
+  state.episodesPage = 1;
 
   renderDetailPlaceholder(item);
   updateHero(item);
@@ -525,7 +637,17 @@ async function loadDetail(item) {
       if (epPath) epData = await apiGet(epPath);
     }
 
-    state.episodes = normalizeEpisodes(epData);
+    let normalizedEpisodes = normalizeEpisodes(epData);
+
+    if (cfg.episodesPath) {
+      const epPath = cfg.episodesPath(item.id, state.currentLang, key);
+      const extraEpisodePayloads = await fetchMoreEpisodes(epPath, normalizedEpisodes);
+      if (extraEpisodePayloads.length) {
+        normalizedEpisodes = mergeEpisodeLists([normalizedEpisodes, ...extraEpisodePayloads.map(normalizeEpisodes)]);
+      }
+    }
+
+    state.episodes = normalizedEpisodes;
     ui.rawJson.textContent = JSON.stringify({ detail, episodes: state.episodes.map((x) => x.raw) }, null, 2);
 
     const extra = findValue(detail, ["synopsis", "desc", "description", "intro", "summary"]);
@@ -533,7 +655,7 @@ async function loadDetail(item) {
       state.episodes.length > 1 ? "s" : ""
     }${extra ? `\n\n${String(extra).slice(0, 260)}` : ""}`;
 
-    renderEpisodes();
+    renderEpisodes(true);
 
     if (state.episodes[0]) {
       await playEpisode(state.episodes[0]);
@@ -546,15 +668,43 @@ async function loadDetail(item) {
 
 function renderEpisodes() {
   if (!state.episodes.length) {
+    if (ui.episodeSummary) ui.episodeSummary.textContent = "0 episode";
+    if (ui.episodePagination) ui.episodePagination.innerHTML = "";
     ui.episodeList.innerHTML = `<div class="empty">Episode belum tersedia / endpoint tidak mengembalikan list episode.</div>`;
     return;
   }
 
-  const sorted = [...state.episodes].sort((a, b) => a.no - b.no);
-  ui.episodeList.innerHTML = sorted
+  const sorted = getSortedEpisodes();
+  const totalPages = Math.max(1, Math.ceil(sorted.length / state.episodesPerPage));
+  if (state.episodesPage > totalPages) state.episodesPage = totalPages;
+  if (state.episodesPage < 1) state.episodesPage = 1;
+
+  const start = (state.episodesPage - 1) * state.episodesPerPage;
+  const pageEpisodes = sorted.slice(start, start + state.episodesPerPage);
+
+  const currentIndex = getCurrentEpisodeIndex(sorted);
+  if (ui.episodeSummary) {
+    const nowPlaying = currentIndex >= 0 ? ` • Now: E${sorted[currentIndex].no}` : "";
+    ui.episodeSummary.textContent = `${sorted.length} episode • Hal ${state.episodesPage}/${totalPages}${nowPlaying}`;
+  }
+
+  if (ui.episodePagination) {
+    const prevDisabled = state.episodesPage <= 1 ? "disabled" : "";
+    const nextDisabled = state.episodesPage >= totalPages ? "disabled" : "";
+    ui.episodePagination.innerHTML = `
+      <button class="ep-page-btn" data-page="1" ${prevDisabled}>« First</button>
+      <button class="ep-page-btn" data-page="${state.episodesPage - 1}" ${prevDisabled}>‹ Prev</button>
+      <span class="ep-page-info">${state.episodesPage} / ${totalPages}</span>
+      <button class="ep-page-btn" data-page="${state.episodesPage + 1}" ${nextDisabled}>Next ›</button>
+      <button class="ep-page-btn" data-page="${totalPages}" ${nextDisabled}>Last »</button>
+    `;
+  }
+
+  ui.episodeList.innerHTML = pageEpisodes
     .map((ep) => {
       const lockIcon = ep.locked ? "🔒 " : "";
-      return `<button class="ep-btn" data-ep="${escapeHtml(ep.id)}">${lockIcon}E${ep.no}</button>`;
+      const activeClass = String(ep.id) === String(state.currentEpisodeId) ? " playing" : "";
+      return `<button class="ep-btn${activeClass}" data-ep="${escapeHtml(ep.id)}">${lockIcon}E${ep.no}</button>`;
     })
     .join("");
 
@@ -565,6 +715,17 @@ function renderEpisodes() {
       if (ep) await playEpisode(ep);
     });
   });
+
+  if (ui.episodePagination) {
+    ui.episodePagination.querySelectorAll(".ep-page-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const targetPage = Number(btn.getAttribute("data-page"));
+        if (!Number.isFinite(targetPage)) return;
+        state.episodesPage = targetPage;
+        renderEpisodes();
+      });
+    });
+  }
 }
 
 async function resolvePlayUrl(ep) {
@@ -602,10 +763,32 @@ async function playEpisode(ep) {
     }
 
     loadPlayer(url);
+    state.currentEpisodeId = String(ep.id);
+    const sorted = getSortedEpisodes();
+    const idx = getCurrentEpisodeIndex(sorted);
+    jumpToEpisodePageByIndex(idx);
+    renderEpisodes();
     ui.playerInfo.textContent = `Now playing: Episode ${ep.no} • ${ep.title}`;
   } catch (err) {
     ui.playerInfo.textContent = `Gagal play Episode ${ep.no}: ${err.message}`;
   }
+}
+
+async function playNextEpisode() {
+  const sorted = getSortedEpisodes();
+  if (!sorted.length) return;
+
+  const currentIndex = getCurrentEpisodeIndex(sorted);
+  if (currentIndex < 0) return;
+
+  const nextEpisode = sorted[currentIndex + 1];
+  if (!nextEpisode) {
+    ui.playerInfo.textContent = `Episode terakhir selesai.`;
+    return;
+  }
+
+  ui.playerInfo.textContent = `Episode ${sorted[currentIndex].no} selesai. Lanjut ke Episode ${nextEpisode.no}...`;
+  await playEpisode(nextEpisode);
 }
 
 function loadPlayer(url) {
@@ -630,6 +813,17 @@ function loadPlayer(url) {
 }
 
 function bindEvents() {
+  if (ui.autoNextToggle) {
+    ui.autoNextToggle.checked = state.autoNext;
+    ui.autoNextToggle.addEventListener("change", () => {
+      state.autoNext = ui.autoNextToggle.checked;
+    });
+  }
+
+  ui.player.addEventListener("ended", () => {
+    if (state.autoNext) playNextEpisode();
+  });
+
   ui.saveKeyBtn.addEventListener("click", () => {
     state.apiKey = ui.apiKey.value.trim() || DEFAULT_KEY;
     saveLocal();
@@ -645,7 +839,11 @@ function bindEvents() {
     state.currentLang = platforms[state.currentPlatform].defaultLang;
     state.selectedItem = null;
     state.episodes = [];
+    state.currentEpisodeId = null;
+    state.episodesPage = 1;
     ui.episodeList.innerHTML = "";
+    if (ui.episodeSummary) ui.episodeSummary.textContent = "0 episode";
+    if (ui.episodePagination) ui.episodePagination.innerHTML = "";
     ui.detailTitle.textContent = "Detail Drama";
     ui.detailMeta.textContent = "Pilih drama dari hasil pencarian.";
     buildLangSelect();

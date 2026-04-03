@@ -4,8 +4,9 @@ Website portal drama yang siap jalan di **GitHub Pages**.
 
 ## Struktur Utama
 
-- `index.html` → Landing/portal provider (tombol API, Nonton, Masuk Hub)
-- `hub.html` → Player hub multi-provider (Dramabox, Melolo, Shortmax)
+- `index.html` → Hub player utama (langsung kebuka tampilan hub)
+- `hub.html` → Alias halaman hub (isi sama untuk kompatibilitas link lama)
+- `portal.html` → Landing/portal provider (tombol API, Nonton, Masuk Hub)
 - `app.js` → Logic fetch API, detail, episode, video player
 - `style.css` → Styling halaman hub
 - `landing.css` → Styling halaman portal
@@ -21,6 +22,8 @@ Website portal drama yang siap jalan di **GitHub Pages**.
   - pilih platform + bahasa
   - search drama / muat beranda otomatis
   - lihat detail + daftar episode
+  - pagination episode (bukan cuma tampil 10)
+  - auto lanjut ke episode berikutnya setelah selesai
   - play video (`m3u8` pakai `hls.js`)
 
 ## URL Parameter di Hub
@@ -47,7 +50,7 @@ hub.html?platform=dramabox&lang=in&key=331D2CC91BC4C0B2218052619DBBBA84
 4. Branch: `main` + `/ (root)`
 5. Save
 
-Selesai. Halaman portal akan otomatis pakai `index.html`.
+Selesai. Halaman hub akan otomatis pakai `index.html`.
 
 ## Catatan Keamanan
 
