@@ -50,21 +50,21 @@ const platforms = {
   reelife: {
     label: "Reelife",
     base: "https://reelife.dramabos.my.id",
-    langs: ["id", "en", "th", "zh-CN", "zh-TW"],
-    defaultLang: "id",
+    langs: ["in", "en", "th", "zh-CN", "zh-TW"],
+    defaultLang: "in",
     feedPaths: {
-      homepage: () => `/api/v1/home`,
-      latest: () => `/api/v1/rank`,
-      popular: () => `/api/v1/suggest?q=drama`
+      homepage: (lang) => `/api/v1/home?page=1&lang=${enc(lang)}`,
+      latest: (lang) => `/api/v1/rank?lang=${enc(lang)}`,
+      popular: (lang) => `/api/v1/suggest?q=drama&lang=${enc(lang)}`
     },
-    homePath: () => `/api/v1/home`,
-    searchPath: (q) => `/api/v1/search?q=${enc(q)}`,
-    detailPath: (id) => `/api/v1/book/${enc(id)}`,
-    episodesPath: (id) => `/api/v1/book/${enc(id)}/chapters`,
+    homePath: (lang) => `/api/v1/home?page=1&lang=${enc(lang)}`,
+    searchPath: (q, lang) => `/api/v1/search?q=${enc(q)}&lang=${enc(lang)}`,
+    detailPath: (id, lang) => `/api/v1/book/${enc(id)}?lang=${enc(lang)}`,
+    episodesPath: (id, lang) => `/api/v1/book/${enc(id)}/chapters?lang=${enc(lang)}`,
     episodeToVideoPath: (ep, lang, key, item) => {
       const bookId = item?.id || ep.bookId || ep.raw?.bookId;
       if (!bookId || !ep?.id) return "";
-      return `/api/v1/play/${enc(bookId)}/${enc(ep.id)}?code=${enc(key)}`;
+      return `/api/v1/play/${enc(bookId)}/${enc(ep.id)}?code=${enc(key)}&lang=${enc(lang)}`;
     },
     idKeys: ["bookId", "id", "dramaId"],
     titleKeys: ["bookName", "title", "name"],
@@ -193,6 +193,14 @@ function enc(v) {
 
 function setStatus(msg) {
   ui.status.textContent = msg;
+}
+
+function friendlyError(err) {
+  const msg = String(err?.message || err || "Unknown error");
+  if (/failed to fetch/i.test(msg)) {
+    return "Failed to fetch (kemungkinan CORS/endpoint provider). Coba ganti provider atau refresh token.";
+  }
+  return msg;
 }
 
 function applyTheme(mode) {
@@ -683,7 +691,7 @@ async function searchDrama() {
     setStatus(`Selesai. Ditemukan ${state.searchResults.length} hasil.`);
   } catch (err) {
     console.error(err);
-    setStatus(`Gagal search: ${err.message}. Kemungkinan CORS / token / endpoint limit.`);
+    setStatus(`Gagal search: ${friendlyError(err)}.`);
     state.searchResults = [];
     renderResults();
   }
@@ -702,7 +710,7 @@ async function loadHomeContent() {
     setStatus(`Beranda dimuat. Menampilkan ${state.searchResults.length} judul.`);
   } catch (err) {
     console.error(err);
-    setStatus(`Gagal memuat beranda: ${err.message}`);
+    setStatus(`Gagal memuat beranda: ${friendlyError(err)}`);
   }
 }
 
@@ -747,7 +755,7 @@ async function loadFeedContent(feedKey = "homepage") {
     state.recommendedResults = [];
     renderRecommendations();
     renderPopularKeywords();
-    setStatus(`Feed ${feedKey} gagal dimuat: ${err.message}`);
+    setStatus(`Feed ${feedKey} gagal dimuat: ${friendlyError(err)}`);
   }
 }
 
